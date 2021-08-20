@@ -1,889 +1,529 @@
-isPlyInBennys = false
+maxVehiclePerformanceUpgrades = 0 -- Set to 0 to have all the upgrades
+vehicleBaseRepairCost = 600
+vehicleRepairCostMultiplier = 1
 
---#[Local Variables]#--
-local plyFirstJoin = false
-local nearDefault = false
-local bennyHeading = 319.73135375977
-local originalCategory = nil
-local originalMod = nil
-local originalPrimaryColour = nil
-local originalSecondaryColour = nil
-local originalPearlescentColour = nil
-local originalWheelColour = nil
-local originalDashColour = nil
-local originalInterColour = nil
-local originalWindowTint = nil
-local originalWheelCategory = nil
-local originalWheel = nil
-local originalWheelType = nil
-local originalCustomWheels = nil
-local originalNeonLightState = nil
-local originalNeonLightSide = nil
-local originalNeonColourR = nil
-local originalNeonColourG = nil
-local originalNeonColourB = nil
-local originalXenonColour = nil
-local originalOldLivery = nil
-local originalPlateIndex = nil
-local attemptingPurchase = false
-local isPurchaseSuccessful = false
-local bennyLocation
+-- Location Configs
+-- Add locations here
+-- Add jobs specific to the garage.
+bennyGarages = {
+    [1] = {coords = vector3(-364.69, -85.61, 39.02), useJob = true, job = {"mechanic", "police"}},
+    [2] = {coords = vector3(-339.55, -95.05, 39.02), useJob = true, job = {"mechanic"}}
+}
 
---Blips
+--[[ bennyLocations = {
+    vector4(-211.55, -1324.55, 30.90, 319.731)
+} ]]
 
-Citizen.CreateThread(function()
-    for k, v in pairs(bennyGarages) do
-        local blip = AddBlipForCoord(v.coords.x,v.coords.y,v.coords.z)
-        SetBlipSprite(blip, 72)
-        SetBlipScale(blip, 0.7)
-        SetBlipAsShortRange(blip,true)
-        BeginTextCommandSetBlipName("STRING")
-        AddTextComponentString("Benny's Motorworks")
-        EndTextCommandSetBlipName(blip)
-    end
-end)
+-- ADJUST PRICING
 
---#[Local Functions]#--
-local function isNear(pos1, pos2, distMustBe)
-    local diff = pos2 - pos1
-	local dist = (diff.x * diff.x) + (diff.y * diff.y)
+vehicleCustomisationPrices = {
+    cosmetics = {price = 200},
+    respray = {price = 0},
+    performance = {prices = {0, 1625, 2750, 5225, 7625, 10250}},
+    turbo = {price = 7500},
+    wheels = {price = 200},
+    customwheels = {price = 300},
+    wheelsmoke = {price = 200},
+    windowtint = {price = 200},
+    neonside = {price = 50},
+    neoncolours = {price = 250},
+    headlights = {price = 50},
+    xenoncolours = {price = 250},
+    oldlivery = {price = 0},
+    plateindex = {price = 500}
+}
 
-	return (dist < (distMustBe * distMustBe))
-end
+-- RESPRAY CATEGORIES
 
-local function saveVehicle()
-    local plyPed = PlayerPedId()
-    local veh = GetVehiclePedIsIn(plyPed, false)
-    local vehicleMods = {
-        neon = {},
-        colors = {},
-        extracolors = {},
-        dashColour = -1,
-        interColour = -1,
-        lights = {},
-        tint = GetVehicleWindowTint(veh),
-        wheeltype = GetVehicleWheelType(veh),
-        platestyle = GetVehicleNumberPlateTextIndex(veh),
-        mods = {},
-        smokecolor = {},
-        xenonColor = -1,
-        oldLiveries = 24,
-        extras = {},
-        plateIndex = 0,
+vehicleResprayCategories = {
+    {category = "Primary Colour", id = 0},
+    {category = "Secondary Colour", id = 1},
+    {category = "Pearlescent Colour", id = 2},
+    {category = "Wheel Colour", id = 3},
+    {category = "Dashboard Colour", id = 4},
+    {category = "Interior Colour", id = 5}
+}
+
+-- WINDOW TINTS
+
+vehicleWindowTintOptions = {
+    {name = "None", id = 0},
+    {name = "Pure Black", id = 1},
+    {name = "Darksmoke", id = 2},
+    {name = "Lightsmoke", id = 3}
+}
+
+-- HEADLIGHTS
+
+vehicleXenonOptions = {
+    xenonColours = {
+        {name = "Stock", id = 255},
+        {name = "White",id = 0}, {name = "Blue",id = 1},
+        {name = "Electric Blue",id = 2},
+        {name = "Mint Green",id = 3},
+        {name = "Lime Green",id = 4},
+        {name = "Yellow",id = 5},
+        {name = "Golden Shower",id = 6},
+        {name = "Orange",id = 7},
+        {name = "Red",id = 8},
+        {name = "Pony Pink",id = 9},
+        {name = "Hot Pink",id = 10},
+        {name = "Purple",id = 11},
+        {name = "Blacklight",id = 12}
     }
+}
 
-    vehicleMods.xenonColor = GetCurrentXenonColour()
-    vehicleMods.lights[1], vehicleMods.lights[2], vehicleMods.lights[3] = GetVehicleNeonLightsColour(veh)
-    vehicleMods.colors[1], vehicleMods.colors[2] = GetVehicleColours(veh)
-    vehicleMods.extracolors[1], vehicleMods.extracolors[2] = GetVehicleExtraColours(veh)
-    vehicleMods.smokecolor[1], vehicleMods.smokecolor[2], vehicleMods.smokecolor[3] = GetVehicleTyreSmokeColor(veh)
-    vehicleMods.dashColour = GetVehicleInteriorColour(veh)
-    vehicleMods.interColour = GetVehicleDashboardColour(veh)
-    vehicleMods.oldLiveries = GetVehicleLivery(veh)
-    vehicleMods.plateIndex = GetVehicleNumberPlateTextIndex(veh)
+-- WHEELS
 
-    for i = 0, 3 do
-        vehicleMods.neon[i] = IsVehicleNeonLightEnabled(veh, i)
-    end
+vehicleWheelOptions = {
+    {category = "Custom Tyres", id = -1, wheelID = 23},
+    {category = "Tyre Smoke", id = 20, wheelID = 23},
+    {category = "Sport", id = 0, wheelID = 23},
+    {category = "Muscle", id = 1, wheelID = 23},
+    {category = "Lowrider", id = 2, wheelID = 23},
+    {category = "SUV", id = 3, wheelID = 23},
+    {category = "Offroad", id = 4, wheelID = 23},
+    {category = "Tuner", id = 5, wheelID = 23},
+    {category = "Motorcycle", id = 6, wheelID = 23},
+    {category = "Highend", id = 7, wheelID = 23}
+}
 
-    for i = 0,16 do
-        vehicleMods.mods[i] = GetVehicleMod(veh,i)
-    end
+-- TIRE SMOKE
 
-    for i = 17, 22 do
-        vehicleMods.mods[i] = IsToggleModOn(veh, i)
-    end
+vehicleTyreSmokeOptions = {
+    {
+        name = "White Smoke",
+        r = 254,
+        g = 254,
+        b = 254
+    }, 
+    {
+        name = "Black Smoke",
+        r = 1,
+        g = 1,
+        b = 1
+    },
+    {
+        name = "Blue Smoke",
+        r = 0,
+        g = 150,
+        b = 255
+    },
+    {
+        name = "Yellow Smoke",
+        r = 255,
+        g = 255,
+        b = 50
+    },
+    {
+        name = "Orange Smoke",
+        r = 255,
+        g = 153,
+        b = 51
+    },
+    {
+        name = "Red Smoke",
+        r = 255,
+        g = 10,
+        b = 10
+    },
+    {
+        name = "Green Smoke",
+        r = 10,
+        g = 255,
+        b = 10
+    },
+    {
+        name = "Purple Smoke",
+        r = 153,
+        g = 10,
+        b = 153
+    },
+    {
+        name = "Pink Smoke",
+        r = 255,
+        g = 102,
+        b = 178
+    },
+    {
+        name = "Gray Smoke",
+        r = 128,
+        g = 128,
+        b = 128
+    }
+}
 
-    for i = 23, 48 do
-        vehicleMods.mods[i] = GetVehicleMod(veh,i)
-    end
+-- NEONS
 
-    for i = 1, 12 do
-        local ison = IsVehicleExtraTurnedOn(veh, i)
-        if 1 == tonumber(ison) then
-            vehicleMods.extras[i] = 1
-        else
-            vehicleMods.extras[i] = 0
-        end
-    end
-	local myCar = QBCore.Functions.GetVehicleProperties(veh)
-    TriggerServerEvent('updateVehicle',myCar)  
-end
-
---#[Global Functions]#--
-function AttemptPurchase(type, upgradeLevel)
-
-    if upgradeLevel ~= nil then
-        upgradeLevel = upgradeLevel + 2
-    end
-    TriggerServerEvent("qb-customs:attemptPurchase", type, upgradeLevel)
-
-    attemptingPurchase = true
-
-    while attemptingPurchase do
-        Citizen.Wait(1)
-    end
-
-    if not isPurchaseSuccessful then
-        PlaySoundFrontend(-1, "ERROR", "HUD_FRONTEND_DEFAULT_SOUNDSET", 1)
-    end
-
-    return isPurchaseSuccessful
-end
-
-function RepairVehicle()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    SetVehicleFixed(plyVeh)
-	SetVehicleDirtLevel(plyVeh, 0.0)
-    SetVehiclePetrolTankHealth(plyVeh, 4000.0)
-    TriggerEvent('veh.randomDegredation',10,plyVeh,3)
-end
-
-function GetCurrentMod(id)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local mod = GetVehicleMod(plyVeh, id)
-    local modName = GetLabelText(GetModTextLabel(plyVeh, id, mod))
-
-    return mod, modName
-end
-
-function GetCurrentWheel()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local wheel = GetVehicleMod(plyVeh, 23)
-    local wheelName = GetLabelText(GetModTextLabel(plyVeh, 23, wheel))
-    local wheelType = GetVehicleWheelType(plyVeh)
-
-    return wheel, wheelName, wheelType
-end
-
-function GetCurrentCustomWheelState()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local state = GetVehicleModVariation(plyVeh, 23)
-
-    if state then
-        return 1
-    else
-        return 0
-    end
-end
-
-function GetOriginalWheel()
-    return originalWheel
-end
-
-function GetOriginalCustomWheel()
-    return originalCustomWheels
-end
-
-function GetCurrentWindowTint()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    return GetVehicleWindowTint(plyVeh)
-end
-
-function GetCurrentVehicleWheelSmokeColour()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local r, g, b = GetVehicleTyreSmokeColor(plyVeh)
-
-    return r, g, b
-end
-
-function GetCurrentNeonState(id)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local isEnabled = IsVehicleNeonLightEnabled(plyVeh, id)
-
-    if isEnabled then
-        return 1
-    else
-        return 0
-    end
-end
-
-function GetCurrentNeonColour()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local r, g, b = GetVehicleNeonLightsColour(plyVeh)
-
-    return r, g, b
-end
-
-function GetCurrentXenonState()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local isEnabled = IsToggleModOn(plyVeh, 22)
-
-    if isEnabled then
-        return 1
-    else
-        return 0
-    end
-end
-
-function GetCurrentXenonColour()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    return GetVehicleHeadlightsColour(plyVeh)
-end
-
-function GetCurrentTurboState()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local isEnabled = IsToggleModOn(plyVeh, 18)
-
-    if isEnabled then
-        return 1
-    else
-        return 0
-    end
-end
-
-function GetCurrentExtraState(extra)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    return IsVehicleExtraTurnedOn(plyVeh, extra)
-end
-
-function CheckValidMods(category, id, wheelType)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local tempMod = GetVehicleMod(plyVeh, id)
-    local tempWheel = GetVehicleMod(plyVeh, 23)
-    local tempWheelType = GetVehicleWheelType(plyVeh)
-    local tempWheelCustom = GetVehicleModVariation(plyVeh, 23)
-    local validMods = {}
-    local amountValidMods = 0
-    local hornNames = {}
-
-    if wheelType ~= nil then
-        SetVehicleWheelType(plyVeh, wheelType)
-    end
-
-    if id == 14 then
-        for k, v in pairs(vehicleCustomisation) do 
-            if vehicleCustomisation[k].category == category then
-                hornNames = vehicleCustomisation[k].hornNames
-
-                break
-            end
-        end
-    end
-
-    local modAmount = GetNumVehicleMods(plyVeh, id)
-    for i = 1, modAmount do
-        local label = GetModTextLabel(plyVeh, id, (i - 1))
-        local modName = GetLabelText(label)
-
-        if modName == "NULL" then
-            if id == 14 then
-                if i <= #hornNames then
-                    modName = hornNames[i].name
-                else
-                    modName = "Horn " .. i
-                end
-            else
-                modName = category .. " " .. i
-            end
-        end
-
-        validMods[i] = 
+vehicleNeonOptions = {
+    category = "Neons",
+        neonTypes = {
+            {name = "Front Neon", id = 2},
+            {name = "Rear Neon", id = 3},
+            {name = "Left Neon", id = 0},
+            {name = "Right Neon", id = 1}
+        },
+    neonColours = {
         {
-            id = (i - 1),
-            name = modName
+            name = "White",
+            r = 222,
+            g = 222,
+            b = 255
+        }, {
+            name = "Blue",
+            r = 2,
+            g = 21,
+            b = 255
+        }, {
+            name = "Electric Blue",
+            r = 3,
+            g = 83,
+            b = 255
+        }, {
+            name = "Mint Green",
+            r = 0,
+            g = 255,
+            b = 140
+        }, {
+            name = "Lime Green",
+            r = 94,
+            g = 255,
+            b = 1
+        }, {
+            name = "Yellow",
+            r = 255,
+            g = 255,
+            b = 0
+        }, {
+            name = "Golden Shower",
+            r = 255,
+            g = 150,
+            b = 0
+        }, {
+            name = "Orange",
+            r = 255,
+            g = 62,
+            b = 0
+        }, {
+            name = "Red",
+            r = 255,
+            g = 1,
+            b = 1
+        }, {
+            name = "Pony Pink",
+            r = 255,
+            g = 50,
+            b = 100
+        }, {
+            name = "Hot Pink",
+            r = 255,
+            g = 5,
+            b = 190
+        }, {
+            name = "Purple",
+            r = 35,
+            g = 1,
+            b = 255
+        }, {
+            name = "Blacklight",
+            r = 15,
+            g = 3,
+            b = 255
         }
+    }
+}
 
-        amountValidMods = amountValidMods + 1
-    end
+-- MAIN COMPONENTS
 
-    if modAmount > 0 then
-        table.insert(validMods, 1, {
-            id = -1,
-            name = "Stock " .. category
-        })
-    end
-
-    if wheelType ~= nil then
-        SetVehicleWheelType(plyVeh, tempWheelType)
-        SetVehicleMod(plyVeh, 23, tempWheel, tempWheelCustom)
-    end
-
-    return validMods, amountValidMods
-end
-
-function RestoreOriginalMod()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    SetVehicleMod(plyVeh, originalCategory, originalMod)
-    SetVehicleDoorsShut(plyVeh, true)
-
-    originalCategory = nil
-    originalMod = nil
-end
-
-function RestoreOriginalWindowTint()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    SetVehicleWindowTint(plyVeh, originalWindowTint)
-
-    originalWindowTint = nil
-end
-
-function RestoreOriginalColours()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    SetVehicleColours(plyVeh, originalPrimaryColour, originalSecondaryColour)
-    SetVehicleExtraColours(plyVeh, originalPearlescentColour, originalWheelColour)
-    SetVehicleDashboardColour(plyVeh, originalDashColour)
-    SetVehicleInteriorColour(plyVeh, originalInterColour)
-
-    originalPrimaryColour = nil
-    originalSecondaryColour = nil
-    originalPearlescentColour = nil
-    originalWheelColour = nil
-    originalDashColour = nil
-    originalInterColour = nil
-end
-
-function RestoreOriginalWheels()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local doesHaveCustomWheels = GetVehicleModVariation(plyVeh, 23)
-
-    SetVehicleWheelType(plyVeh, originalWheelType)
-
-    if originalWheelCategory ~= nil then
-        SetVehicleMod(plyVeh, originalWheelCategory, originalWheel, originalCustomWheels)
+vehicleCustomisation = {
+    {category = "Spoiler", id = 0}, 
+    {category = "Front Bumper", id = 1},
+    {category = "Rear Bumper", id = 2},
+    {category = "Side Skirt", id = 3},
+    {category = "Exhaust", id = 4},
+    {category = "Roll Cage", id = 5},
+    {category = "Grille", id = 6},
+    {category = "Hood", id = 7},
+    {category = "Left Fender", id = 8},
+    {category = "Right Fender", id = 9},
+    {category = "Roof",id = 10},
+    {category = "Engine Upgrade", id = 11},
+    {category = "Brake Upgrade", id = 12},
+    {category = "Transmission Upgrade", id = 13},
+    {category = "Suspension Upgrade", id = 15},
+    {category = "Armour Upgrade", id = 16},
+    {category = "Turbo Upgrade", id = 18},
+    {category = "Vanity Plates",id = 25},
+    {category = "Trim A", id = 27},
+    {category = "Ornaments", id = 28},
+    {category = "Dashboard", id = 29},
+    {category = "Dial", id = 30},
+    {category = "Door Speaker", id = 31},
+    {category = "Seats", id = 32},
+    {category = "Steering Wheel", id = 33},
+    {category = "Shifter Leaver", id = 34},
+    {category = "Plaque", id = 35},
+    {category = "Speaker", id = 36},
+    {category = "Trunk", id = 37},
+    {category = "Hydraulic", id = 38},
+    {category = "Engine Block", id = 39},
+    {category = "Air Filter", id = 40},
+    {category = "Strut", id = 41},
+    {category = "Arch Cover", id = 42},
+    {category = "Aerial", id = 43},
+    {category = "Trim B", id = 44},
+    {category = "Fuel Tank", id = 45},
+    {category = "Window", id = 46},
+    {category = "Livery", id = 48},
+    {category = "Horns", id = 14, 
         
-        if GetVehicleClass(plyVeh) == 8 then --Motorcycle
-            SetVehicleMod(plyVeh, 24, originalWheel, originalCustomWheels)
-        end
-
-        originalWheelType = nil
-        originalWheelCategory = nil
-        originalWheel = nil
-        originalCustomWheels = nil
-    end
-end
-
-function RestoreOriginalNeonStates()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    SetVehicleNeonLightEnabled(plyVeh, originalNeonLightSide, originalNeonLightState)
-
-    originalNeonLightState = nil
-    originalNeonLightSide = nil
-end
-
-function RestoreOriginalNeonColours()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    SetVehicleNeonLightsColour(plyVeh, originalNeonColourR, originalNeonColourG, originalNeonColourB)
-
-    originalNeonColourR = nil
-    originalNeonColourG = nil
-    originalNeonColourB = nil
-end
-
-function RestoreOriginalXenonColour()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    SetVehicleHeadlightsColour(plyVeh, originalXenonColour)
-    SetVehicleLights(plyVeh, 0)
-
-    originalXenonColour = nil
-end
-
-function RestoreOldLivery()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    SetVehicleLivery(plyVeh, originalOldLivery)
-end
-
-function RestorePlateIndex()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    SetVehicleNumberPlateTextIndex(plyVeh, originalPlateIndex)
-end
-
-function PreviewMod(categoryID, modID)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    if originalMod == nil and originalCategory == nil then
-        originalCategory = categoryID
-        originalMod = GetVehicleMod(plyVeh, categoryID)
-    end
-
-    if categoryID == 39 or categoryID == 40 or categoryID == 41 then
-        SetVehicleDoorOpen(plyVeh, 4, false, true)
-    elseif categoryID == 37 or categoryID == 38 then
-        SetVehicleDoorOpen(plyVeh, 5, false, true)
-    end
-
-    SetVehicleMod(plyVeh, categoryID, modID)
-end
-
-function PreviewWindowTint(windowTintID)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    if originalWindowTint == nil then
-        originalWindowTint = GetVehicleWindowTint(plyVeh)
-    end
-
-    SetVehicleWindowTint(plyVeh, windowTintID)
-end
-
-function PreviewColour(paintType, paintCategory, paintID)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    SetVehicleModKit(plyVeh, 0)
-    if originalDashColour == nil and originalInterColour == nil and originalPrimaryColour == nil and originalSecondaryColour == nil and originalPearlescentColour == nil and originalWheelColour == nil then
-        originalPrimaryColour, originalSecondaryColour = GetVehicleColours(plyVeh)
-        originalPearlescentColour, originalWheelColour = GetVehicleExtraColours(plyVeh)
-        originalDashColour = GetVehicleDashboardColour(plyVeh)
-        originalInterColour = GetVehicleInteriorColour(plyVeh)
-    end
-    if paintType == 0 then --Primary Colour
-        if paintCategory == 1 then --Metallic Paint
-            SetVehicleColours(plyVeh, paintID, originalSecondaryColour)
-            SetVehicleExtraColours(plyVeh, originalPearlescentColour, originalWheelColour)
-        else
-            SetVehicleColours(plyVeh, paintID, originalSecondaryColour)
-        end
-    elseif paintType == 1 then --Secondary Colour
-        SetVehicleColours(plyVeh, originalPrimaryColour, paintID)
-    elseif paintType == 2 then --Pearlescent Colour
-        SetVehicleExtraColours(plyVeh, paintID, originalWheelColour)
-    elseif paintType == 3 then --Wheel Colour
-        SetVehicleExtraColours(plyVeh, originalPearlescentColour, paintID)
-    elseif paintType == 4 then --Dash Colour
-        SetVehicleDashboardColour(plyVeh, paintID)
-    elseif paintType == 5 then --Interior Colour
-        SetVehicleInteriorColour(plyVeh, paintID)
-    end
-end
-
-function PreviewWheel(categoryID, wheelID, wheelType)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local doesHaveCustomWheels = GetVehicleModVariation(plyVeh, 23)
-
-    if originalWheelCategory == nil and originalWheel == nil and originalWheelType == nil and originalCustomWheels == nil then
-        originalWheelCategory = categoryID
-        originalWheelType = GetVehicleWheelType(plyVeh)
-        originalWheel = GetVehicleMod(plyVeh, 23)
-        originalCustomWheels = GetVehicleModVariation(plyVeh, 23)
-    end
-
-    SetVehicleWheelType(plyVeh, wheelType)
-    SetVehicleMod(plyVeh, categoryID, wheelID, doesHaveCustomWheels)
-
-    if GetVehicleClass(plyVeh) == 8 then --Motorcycle
-        SetVehicleMod(plyVeh, 24, wheelID, doesHaveCustomWheels)
-    end
-end
-
-function PreviewNeon(side, enabled)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    if originalNeonLightState == nil and originalNeonLightSide == nil then
-        if IsVehicleNeonLightEnabled(plyVeh, side) then
-            originalNeonLightState = 1
-        else
-            originalNeonLightState = 0
-        end
-
-        originalNeonLightSide = side
-    end
-
-    SetVehicleNeonLightEnabled(plyVeh, side, enabled)
-end
-
-function PreviewNeonColour(r, g, b)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    if originalNeonColourR == nil and originalNeonColourG == nil and originalNeonColourB == nil then
-        originalNeonColourR, originalNeonColourG, originalNeonColourB = GetVehicleNeonLightsColour(plyVeh)
-    end
-
-    SetVehicleNeonLightsColour(plyVeh, r, g, b)
-end
-
-function PreviewXenonColour(colour)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    if originalXenonColour == nil then
-        originalXenonColour = GetVehicleHeadlightsColour(plyVeh)
-    end
-
-    SetVehicleLights(plyVeh, 2)
-    SetVehicleHeadlightsColour(plyVeh, colour)
-end
-
-function PreviewOldLivery(liv)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    if originalOldLivery == nil then
-        originalOldLivery = GetVehicleLivery(plyVeh)
-    end
-
-    SetVehicleLivery(plyVeh, tonumber(liv))
-end
-
-function PreviewPlateIndex(index)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    if originalPlateIndex == nil then
-        originalPlateIndex = GetVehicleNumberPlateTextIndex(plyVeh)
-    end
-
-    SetVehicleNumberPlateTextIndex(plyVeh, tonumber(index))
-end
-
-function ApplyMod(categoryID, modID)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    if categoryID == 18 then
-        ToggleVehicleMod(plyVeh, categoryID, modID)
-    elseif categoryID == 11 or categoryID == 12 or categoryID== 13 or categoryID == 15 or categoryID == 16 then --Performance Upgrades
-        originalCategory = categoryID
-        originalMod = modID
-
-        SetVehicleMod(plyVeh, categoryID, modID)
-    else
-        originalCategory = categoryID
-        originalMod = modID
-
-        SetVehicleMod(plyVeh, categoryID, modID)
-    end
-end
-
-function ApplyExtra(extraID)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local isEnabled = IsVehicleExtraTurnedOn(plyVeh, extraID)
-    if isEnabled == 1 then
-        SetVehicleExtra(plyVeh, tonumber(extraID), 1)
-        SetVehiclePetrolTankHealth(plyVeh,4000.0)
-    else
-        SetVehicleExtra(plyVeh, tonumber(extraID), 0)
-        SetVehiclePetrolTankHealth(plyVeh,4000.0)
-    end
-end
-
-function ApplyWindowTint(windowTintID)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    originalWindowTint = windowTintID
-
-    SetVehicleWindowTint(plyVeh, windowTintID)
-end
-
-function ApplyColour(paintType, paintCategory, paintID)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local vehPrimaryColour, vehSecondaryColour = GetVehicleColours(plyVeh)
-    local vehPearlescentColour, vehWheelColour = GetVehicleExtraColours(plyVeh)
-
-    if paintType == 0 then --Primary Colour
-        if paintCategory == 1 then --Metallic Paint
-            SetVehicleColours(plyVeh, paintID, vehSecondaryColour)
-            -- SetVehicleExtraColours(plyVeh, paintID, vehWheelColour)
-            SetVehicleExtraColours(plyVeh, originalPearlescentColour, vehWheelColour)
-            originalPrimaryColour = paintID
-            -- originalPearlescentColour = paintID
-        else
-            SetVehicleColours(plyVeh, paintID, vehSecondaryColour)
-            originalPrimaryColour = paintID
-        end
-    elseif paintType == 1 then --Secondary Colour
-        SetVehicleColours(plyVeh, vehPrimaryColour, paintID)
-        originalSecondaryColour = paintID
-    elseif paintType == 2 then --Pearlescent Colour
-        SetVehicleExtraColours(plyVeh, paintID, vehWheelColour)
-        originalPearlescentColour = paintID
-    elseif paintType == 3 then --Wheel Colour
-        SetVehicleExtraColours(plyVeh, vehPearlescentColour, paintID)
-        originalWheelColour = paintID
-    elseif paintType == 4 then --Dash Colour
-        SetVehicleDashboardColour(plyVeh, paintID)
-        originalDashColour = paintID
-    elseif paintType == 5 then --Interior Colour
-        SetVehicleInteriorColour(plyVeh, paintID)
-        originalInterColour = paintID
-    end
-end
-
-function ApplyWheel(categoryID, wheelID, wheelType)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local doesHaveCustomWheels = GetVehicleModVariation(plyVeh, 23)
-
-    originalWheelCategory = categoryID
-    originalWheel = wheelID
-    originalWheelType = wheelType
-
-    SetVehicleWheelType(plyVeh, wheelType)
-    SetVehicleMod(plyVeh, categoryID, wheelID, doesHaveCustomWheels)
-    
-    if GetVehicleClass(plyVeh) == 8 then --Motorcycle
-        SetVehicleMod(plyVeh, 24, wheelID, doesHaveCustomWheels)
-    end
-end
-
-function ApplyCustomWheel(state)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    SetVehicleMod(plyVeh, 23, GetVehicleMod(plyVeh, 23), state)
-    
-    if GetVehicleClass(plyVeh) == 8 then --Motorcycle
-        SetVehicleMod(plyVeh, 24, GetVehicleMod(plyVeh, 24), state)
-    end
-end
-
-function ApplyNeon(side, enabled)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    originalNeonLightState = enabled
-    originalNeonLightSide = side
-
-    SetVehicleNeonLightEnabled(plyVeh, side, enabled)
-end
-
-function ApplyNeonColour(r, g, b)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    originalNeonColourR = r
-    originalNeonColourG = g
-    originalNeonColourB = b
-
-    SetVehicleNeonLightsColour(plyVeh, r, g, b)
-end
-
-function ApplyXenonLights(category, state)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    ToggleVehicleMod(plyVeh, category, state)
-end
-
-function ApplyXenonColour(colour)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    originalXenonColour = colour
-
-    SetVehicleHeadlightsColour(plyVeh, colour)
-end
-
-function ApplyOldLivery(liv)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    originalOldLivery = liv
-
-    SetVehicleLivery(plyVeh, liv)
-end
-
-function ApplyPlateIndex(index)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    originalPlateIndex = index
-    SetVehicleNumberPlateTextIndex(plyVeh, index)
-end
-
-function ApplyTyreSmoke(r, g, b)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    ToggleVehicleMod(plyVeh, 20, true)
-    SetVehicleTyreSmokeColor(plyVeh, r, g, b)
-end
-
-function ExitBennys()
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-
-    saveVehicle()
-
-    DisplayMenuContainer(false)
-
-    FreezeEntityPosition(plyVeh, false)
-    SetEntityCollision(plyVeh, true, true)
-
-    SetTimeout(100, function()
-        DestroyMenus()
-    end)
-
-    isPlyInBennys = false
-end
-
-RegisterNetEvent('event:control:bennys')
-AddEventHandler('event:control:bennys', function(useID)
-    if IsPedInAnyVehicle(PlayerPedId(), false) then
-        bennyHeading = bennyGarages[useID].coords.w
-        if not isPlyInBennys then -- Bennys
-            enterLocation(bennyLocation)
-        end
-    end
-end)
-
-function enterLocation(locationsPos)
-    local plyPed = PlayerPedId()
-    local plyVeh = GetVehiclePedIsIn(plyPed, false)
-    local isMotorcycle = false
-
-    SetVehicleModKit(plyVeh, 0)
-    SetEntityCoords(plyVeh, locationsPos)
-    SetEntityHeading(plyVeh, bennyHeading)
-    FreezeEntityPosition(plyVeh, true)
-    SetEntityCollision(plyVeh, false, true)
-
-    if GetVehicleClass(plyVeh) == 8 then --Motorcycle
-        isMotorcycle = true
-    else
-        isMotorcycle = false
-    end
-
-    InitiateMenus(isMotorcycle, GetVehicleBodyHealth(plyVeh))
-
-    SetTimeout(100, function()
-        if GetVehicleBodyHealth(plyVeh) < 1000.0 then
-            DisplayMenu(true, "repairMenu")
-        else
-            DisplayMenu(true, "mainMenu")
-        end
-        
-        DisplayMenuContainer(true)
-        PlaySoundFrontend(-1, "OK", "HUD_FRONTEND_DEFAULT_SOUNDSET", 1)
-    end)
-
-    isPlyInBennys = true
-end
-
-
-function disableControls()
-    DisableControlAction(1, 38, true) --Key: E
-    DisableControlAction(1, 172, true) --Key: Up Arrow
-    DisableControlAction(1, 173, true) --Key: Down Arrow
-    DisableControlAction(1, 177, true) --Key: Backspace
-    DisableControlAction(1, 176, true) --Key: Enter
-    DisableControlAction(1, 71, true) --Key: W (veh_accelerate)
-    DisableControlAction(1, 72, true) --Key: S (veh_brake)
-    DisableControlAction(1, 34, true) --Key: A
-    DisableControlAction(1, 35, true) --Key: D
-    DisableControlAction(1, 75, true) --Key: F (veh_exit)
-
-    if IsDisabledControlJustReleased(1, 172) then --Key: Arrow Up
-        MenuScrollFunctionality("up")
-        PlaySoundFrontend(-1, "NAV_UP_DOWN", "HUD_FRONTEND_DEFAULT_SOUNDSET", 1)
-    end
-
-    if IsDisabledControlJustReleased(1, 173) then --Key: Arrow Down
-        MenuScrollFunctionality("down")
-        PlaySoundFrontend(-1, "NAV_UP_DOWN", "HUD_FRONTEND_DEFAULT_SOUNDSET", 1)
-    end
-
-    if IsDisabledControlJustReleased(1, 176) then --Key: Enter
-        MenuManager(true)
-        PlaySoundFrontend(-1, "OK", "HUD_FRONTEND_DEFAULT_SOUNDSET", 1)
-    end
-
-    if IsDisabledControlJustReleased(1, 177) then --Key: Backspace
-        MenuManager(false)
-        PlaySoundFrontend(-1, "NO", "HUD_FRONTEND_DEFAULT_SOUNDSET", 1)
-    end
-end
-
--- #MarkedForMarker
---#[Citizen Threads]#--
-Citizen.CreateThread(function()
-    while true do 
-        local plyPed = PlayerPedId()
-
-        if IsPedInAnyVehicle(plyPed, false) then
-            local plyPos = GetEntityCoords(plyPed)
-            for k, v in pairs(bennyGarages) do
-
-                nearDefault = isNear(plyPos, vector3(v.coords.x,v.coords.y,v.coords.z), 10) 
-
-                if nearDefault then
-                    if not isPlyInBennys and nearDefault then
-                        DrawMarker(21, v.coords.x, v.coords.y, v.coords.z + 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 148, 0, 211, 255, true, false, 2, true, nil, nil, false)
-                    end
-
-                    bennyLocation = vector3(v.coords.x, v.coords.y, v.coords.z)
-
-                    if nearDefault then
-                        if not isPlyInBennys then
-                            Draw3DText(v.coords.x, v.coords.y, v.coords.z + 0.5, "[Press ~p~E~w~ - Enter Benny's Motorworks]", 255, 255, 255, 255, 4, 0.45, true, true, true, true, 0, 0, 0, 0, 55)
-                            if IsControlJustReleased(1, 38) then
-                                if (v.useJob and isAuthorized((QBCore.Functions.GetPlayerData().job.name), k)) or not v.useJob then
-                                    TriggerEvent('event:control:bennys', k)
-                                else
-                                    QBCore.Functions.Notify("You are not authorized", "error")
-                                end
-                            end
-                        else
-                            disableControls()
-                        end
-                    end
-                end
-            end
-        else
-            Wait(2000)
-        end
-
-        Citizen.Wait(1)
-    end
-end)
-
---#[Event Handlers]#--
-RegisterNetEvent("qb-customs:purchaseSuccessful")
-AddEventHandler("qb-customs:purchaseSuccessful", function()
-    isPurchaseSuccessful = true
-    attemptingPurchase = false
-    QBCore.Functions.Notify("Purchase Successful")
-end)
-
-RegisterNetEvent("qb-customs:purchaseFailed")
-AddEventHandler("qb-customs:purchaseFailed", function()
-    isPurchaseSuccessful = false
-    attemptingPurchase = false
-    QBCore.Functions.Notify("Not enough money", "error")
-end)
-
-
---helper function 
-
-function isAuthorized(job, location)
-    for a=1, #bennyGarages[location].job do
-        if job == bennyGarages[location].job[a] then
-            return true
-        end
-    end
-    return false
-end
+        hornNames = {
+            {name = "Truck Horn", id = 0},
+            {name = "Cop Horn", id = 1},
+            {name = "Clown Horn", id = 2},
+            {name = "Musical Horn 1", id = 3},
+            {name = "Musical Horn 2", id = 4},
+            {name = "Musical Horn 3", id = 5},
+            {name = "Musical Horn 4", id = 6},
+            {name = "Musical Horn 5", id = 7},
+            {name = "Sad Trombone", id = 8},
+            {name = "Classical Horn 1", id = 9},
+            {name = "Classical Horn 2", id = 10},
+            {name = "Classical Horn 3", id = 11},
+            {name = "Classical Horn 4", id = 12},
+            {name = "Classical Horn 5", id = 13},
+            {name = "Classical Horn 6", id = 14},
+            {name = "Classical Horn 7", id = 15},
+            {name = "Scale - Do", id = 16},
+            {name = "Scale - Re", id = 17},
+            {name = "Scale - Mi", id = 18},
+            {name = "Scale - Fa", id = 19},
+            {name = "Scale - Sol", id = 20},
+            {name = "Scale - La", id = 21},
+            {name = "Scale - Ti", id = 22},
+            {name = "Scale - Do", id = 23},
+            {name = "Jazz Horn 1", id = 24},
+            {name = "Jazz Horn 2", id = 25},
+            {name = "Jazz Horn 3", id = 26},
+            {name = "Jazz Horn Loop", id = 27},
+            {name = "Star Spangled Banner 1", id = 28},
+            {name = "Star Spangled Banner 2", id = 29},
+            {name = "Star Spangled Banner 3", id = 30},
+            {name = "Star Spangled Banner 4", id = 31},
+            {name = "Classical Horn 8 Loop", id = 32},
+            {name = "Classical Horn 9 Loop", id = 33},
+            {name = "Classical Horn 10 Loop", id = 34},
+            {name = "Classical Horn 8", id = 35},
+            {name = "Classical Horn 9", id = 36},
+            {name = "Classical Horn 10", id = 37},
+            {name = "Funeral Loop", id = 38},
+            {name = "Funeral", id = 39},
+            {name = "Spooky Loop", id = 40},
+            {name = "Spooky", id = 41},
+            {name = "San Andreas Loop", id = 42},
+            {name = "San Andreas", id = 43},
+            {name = "Liberty City Loop", id = 44},
+            {name = "Liberty City", id = 45},
+            {name = "Festive 1 Loop", id = 46},
+            {name = "Festive 1", id = 47},
+            {name = "Festive 2 Loop", id = 48},
+            {name = "Festive 2", id = 49},
+            {name = "Festive 3 Loop", id = 50},
+            {name = "Festive 3", id = 51}
+        }
+    }
+}
+
+-- COLORS
+
+vehicleResprayOptions = {
+    {category = "Classic", id = 0,
+        colours = {
+            {name = "Black", id = 0},
+            {name = "Carbon Black", id = 147},
+            {name = "Graphite", id = 1},
+            {name = "Anhracite Black", id = 11},
+            {name = "Black Steel", id = 11},
+            {name = "Dark Steel", id = 3},
+            {name = "Silver", id = 4},
+            {name = "Bluish Silver", id = 5},
+            {name = "Rolled Steel", id = 6},
+            {name = "Shadow Silver", id = 7},
+            {name = "Stone Silver", id = 8},
+            {name = "Midnight Silver", id = 9},
+            {name = "Cast Iron Silver", id = 10},
+            {name = "Red", id = 27},
+            {name = "Torino Red", id = 28},
+            {name = "Formula Red", id = 29},
+            {name = "Lava Red", id = 150},
+            {name = "Blaze Red", id = 30},
+            {name = "Grace Red", id = 31},
+            {name = "Garnet Red", id = 32},
+            {name = "Sunset Red", id = 33},
+            {name = "Cabernet Red", id = 34},
+            {name = "Wine Red", id = 143},
+            {name = "Candy Red", id = 35},
+            {name = "Hot Pink", id = 135},
+            {name = "Pfsiter Pink", id = 137},
+            {name = "Salmon Pink", id = 136},
+            {name = "Sunrise Orange", id = 36},
+            {name = "Orange", id = 38},
+            {name = "Bright Orange", id = 138},
+            {name = "Gold", id = 99},
+            {name = "Bronze", id = 90},
+            {name = "Yellow", id = 88},
+            {name = "Race Yellow", id = 89},
+            {name = "Dew Yellow", id = 91},
+            {name = "Dark Green", id = 49},
+            {name = "Racing Green", id = 50},
+            {name = "Sea Green", id = 51},
+            {name = "Olive Green", id = 52},
+            {name = "Bright Green", id = 53},
+            {name = "Gasoline Green", id = 54},
+            {name = "Lime Green", id = 92},
+            {name = "Midnight Blue", id = 141},
+            {name = "Galaxy Blue", id = 61},
+            {name = "Dark Blue", id = 62},
+            {name = "Saxon Blue", id = 63},
+            {name = "Blue", id = 64},
+            {name = "Mariner Blue", id = 65},
+            {name = "Harbor Blue", id = 66},
+            {name = "Diamond Blue", id = 67},
+            {name = "Surf Blue", id = 68},
+            {name = "Nautical Blue", id = 69},
+            {name = "Racing Blue", id = 73},
+            {name = "Ultra Blue", id = 70},
+            {name = "Light Blue", id = 74},
+            {name = "Chocolate Brown", id = 96},
+            {name = "Bison Brown", id = 101},
+            {name = "Creeen Brown", id = 95},
+            {name = "Feltzer Brown", id = 94},
+            {name = "Maple Brown", id = 97},
+            {name = "Beechwood Brown", id = 103},
+            {name = "Sienna Brown", id = 104},
+            {name = "Saddle Brown", id = 98},
+            {name = "Moss Brown", id = 100},
+            {name = "Woodbeech Brown", id = 102},
+            {name = "Straw Brown", id = 99},
+            {name = "Sandy Brown", id = 105},
+            {name = "Bleached Brown", id = 106},
+            {name = "Schafter Purple", id = 71},
+            {name = "Spinnaker Purple", id = 72},
+            {name = "Midnight Purple", id = 142},
+            {name = "Bright Purple", id = 145},
+            {name = "Cream", id = 107},
+            {name = "Ice White", id = 111},
+            {name = "Frost White", id = 112}
+        }
+    }, 
+    {category = "Metallic", id = 1,
+        colours = {{name = "Black", id = 0},
+            {name = "Carbon Black", id = 147},
+            {name = "Graphite", id = 1},
+            {name = "Anhracite Black", id = 11},
+            {name = "Black Steel", id = 11},
+            {name = "Dark Steel", id = 3},
+            {name = "Silver", id = 4},
+            {name = "Bluish Silver", id = 5},
+            {name = "Rolled Steel", id = 6},
+            {name = "Shadow Silver", id = 7},
+            {name = "Stone Silver", id = 8},
+            {name = "Midnight Silver", id = 9},
+            {name = "Cast Iron Silver", id = 10},
+            {name = "Red", id = 27},
+            {name = "Torino Red", id = 28},
+            {name = "Formula Red", id = 29},
+            {name = "Lava Red", id = 150},
+            {name = "Blaze Red", id = 30},
+            {name = "Grace Red", id = 31},
+            {name = "Garnet Red", id = 32},
+            {name = "Sunset Red", id = 33},
+            {name = "Cabernet Red", id = 34},
+            {name = "Wine Red", id = 143},
+            {name = "Candy Red", id = 35},
+            {name = "Hot Pink", id = 135},
+            {name = "Pfsiter Pink", id = 137},
+            {name = "Salmon Pink", id = 136},
+            {name = "Sunrise Orange", id = 36},
+            {name = "Orange", id = 38},
+            {name = "Bright Orange", id = 138},
+            {name = "Gold", id = 99},
+            {name = "Bronze", id = 90},
+            {name = "Yellow", id = 88},
+            {name = "Race Yellow", id = 89},
+            {name = "Dew Yellow", id = 91},
+            {name = "Dark Green", id = 49},
+            {name = "Racing Green", id = 50},
+            {name = "Sea Green", id = 51},
+            {name = "Olive Green", id = 52},
+            {name = "Bright Green", id = 53},
+            {name = "Gasoline Green", id = 54},
+            {name = "Lime Green", id = 92},
+            {name = "Midnight Blue", id = 141},
+            {name = "Galaxy Blue", id = 61},
+            {name = "Dark Blue", id = 62},
+            {name = "Saxon Blue", id = 63},
+            {name = "Blue", id = 64},
+            {name = "Mariner Blue", id = 65},
+            {name = "Harbor Blue", id = 66},
+            {name = "Diamond Blue", id = 67},
+            {name = "Surf Blue", id = 68},
+            {name = "Nautical Blue", id = 69},
+            {name = "Racing Blue", id = 73},
+            {name = "Ultra Blue", id = 70},
+            {name = "Light Blue", id = 74},
+            {name = "Chocolate Brown", id = 96},
+            {name = "Bison Brown", id = 101},
+            {name = "Creeen Brown", id = 95},
+            {name = "Feltzer Brown", id = 94},
+            {name = "Maple Brown", id = 97},
+            {name = "Beechwood Brown", id = 103},
+            {name = "Sienna Brown", id = 104},
+            {name = "Saddle Brown", id = 98},
+            {name = "Moss Brown", id = 100},
+            {name = "Woodbeech Brown", id = 102},
+            {name = "Straw Brown", id = 99},
+            {name = "Sandy Brown", id = 105},
+            {name = "Bleached Brown", id = 106},
+            {name = "Schafter Purple", id = 71},
+            {name = "Spinnaker Purple", id = 72},
+            {name = "Midnight Purple", id = 142},
+            {name = "Bright Purple", id = 145},
+            {name = "Cream", id = 107},
+            {name = "Ice White", id = 111},
+            {name = "Frost White", id = 112}
+        }
+    },
+    {category = "Matte", id = 2,
+        colours = {{name = "Black", id = 12},
+            {name = "Gray", id = 13},
+            {name = "Light Gray", id = 14},
+            {name = "Ice White", id = 131},
+            {name = "Blue", id = 83},
+            {name = "Dark Blue", id = 82},
+            {name = "Midnight Blue", id = 84},
+            {name = "Midnight Purple", id = 149},
+            {name = "Schafter Purple", id = 148},
+            {name = "Red", id = 39},
+            {name = "Dark Red", id = 40},
+            {name = "Orange", id = 41},
+            {name = "Yellow", id = 42},
+            {name = "Lime Green", id = 55},
+            {name = "Green", id = 128},
+            {name = "Forest Green", id = 151},
+            {name = "Foliage Green", id = 155},
+            {name = "Olive Darb", id = 152},
+            {name = "Dark Earth", id = 153},
+            {name = "Desert Tan", id = 154}
+        }
+    },
+    {category = "Metals", id = 3,
+            colours = {{name = "Brushed Steel", id = 117},
+            {name = "Brushed Black Steel", id = 118},
+            {name = "Brushed Aluminium", id = 119},
+            {name = "Pure Gold", id = 158},
+            {name = "Brushed Gold", id = 159},
+            {name = "Chrome", id = 120}
+        }
+    }
+}
